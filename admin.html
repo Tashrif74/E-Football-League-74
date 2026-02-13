@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Inter',sans-serif;background:#020617;color:#f8fafc;}
+.container{width:95%;max-width:1200px;margin:auto;padding:20px;}
+h1{margin-bottom:20px;font-family:'Oswald',sans-serif;color:#22c55e;}
+nav{display:flex;gap:10px;margin-bottom:20px;}
+nav button{padding:10px 20px;border:none;border-radius:6px;background:#0b1220;color:#94a3b8;cursor:pointer;transition:0.3s;}
+nav button.active{background:#22c55e;color:#020617;font-weight:700;}
+section{display:none;animation:fade 0.5s;}
+section.active{display:block;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{border:1px solid #1e293b;padding:8px;text-align:center;}
+th{background:#132035;}
+button.action{padding:5px 10px;border:none;border-radius:4px;background:#22c55e;color:#020617;cursor:pointer;}
+
+/* Highlight top 1 team */
+table tr:nth-child(2){background: linear-gradient(90deg,#FFD700,#FFE066);font-weight:700;}
+
+/* Responsive */
+@media(max-width:768px){
+  body{padding:10px;}
+  nav{flex-direction:column;}
+  nav button{width:100%; margin-bottom:8px;}
+  table, thead, tbody, th, td, tr{display:block;width:100%;}
+  thead{display:none;}
+  td{position:relative;padding-left:50%;border:none;border-bottom:1px solid #1e293b;}
+  td::before{position:absolute;left:10px;width:45%;white-space:nowrap;font-weight:bold;color:#22c55e;}
+  td:nth-of-type(1)::before{content:"Pos";}
+  td:nth-of-type(2)::before{content:"Team";}
+  td:nth-of-type(3)::before{content:"P";}
+  td:nth-of-type(4)::before{content:"W";}
+  td:nth-of-type(5)::before{content:"D";}
+  td:nth-of-type(6)::before{content:"L";}
+  td:nth-of-type(7)::before{content:"GF";}
+  td:nth-of-type(8)::before{content:"GA";}
+  td:nth-of-type(9)::before{content:"GD";}
+  td:nth-of-type(10)::before{content:"Pts";}
+}
+@keyframes fade{from{opacity:0} to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Admin Dashboard</h1>
+<nav>
+<button class="tabBtn active" data-target="home">Home</button>
+<button class="tabBtn" data-target="players">Registered Players</button>
+<button class="tabBtn" data-target="league">League Start</button>
+<button class="tabBtn" data-target="matches">Matches</button>
+<button class="tabBtn" data-target="standings">Standings</button>
+<button class="tabBtn" data-target="settings">Settings</button>
+</nav>
+
+<section id="home" class="active">
+<h2>Welcome, Admin!</h2>
+<p>Manage your league here.</p>
+</section>
+
+<section id="players">
+<h2>Registered Players</h2>
+<div id="playerTable"></div>
+</section>
+
+<section id="league">
+<h2>League Start</h2>
+<div id="teamSelection"></div>
+<button id="generateLeague" class="action">Generate Schedule</button>
+</section>
+
+<section id="matches">
+<h2>Matches</h2>
+<div id="matchTable"></div>
+</section>
+
+<section id="standings">
+<h2>League Standings</h2>
+<div id="standingsTable"></div>
+</section>
+
+<section id="settings">
+<h2>Settings</h2>
+<button id="clearAll" class="action">Clear All Data</button>
+<button id="logout" class="action">Logout</button>
+</section>
+</div>
+
+<script>
+// Tab switching
+const tabs=document.querySelectorAll(".tabBtn");const sections=document.querySelectorAll("section");
+tabs.forEach(tab=>{tab.onclick=()=>{
+  if(tab.dataset.target==="logout"){window.location.href="index.html"; return;}
+  tabs.forEach(t=>t.classList.remove("active"));tab.classList.add("active");
+  sections.forEach(s=>s.classList.remove("active"));document.getElementById(tab.dataset.target).classList.add("active");
+  if(tab.dataset.target==="players")loadPlayers();
+  if(tab.dataset.target==="league")loadTeams();
+  if(tab.dataset.target==="matches")loadMatches();
+  if(tab.dataset.target==="standings")loadStandings();
+}});
+
+// Registered Players
+function loadPlayers(){
+  const container=document.getElementById("playerTable");let html="<table><tr><th>Username</th><th>Team</th><th>Cadet Name</th><th>Cadet Number</th></tr>";
+  Object.keys(localStorage).forEach(k=>{if(k!=="admin"&&k!=="leagueMatches"&&k!=="leaguePoints"){const u=JSON.parse(localStorage.getItem(k));html+=`<tr><td>${u.username}</td><td>${u.team}</td><td>${u.cadetName}</td><td>${u.cadet}</td></tr>`;}});
+  html+="</table>";container.innerHTML=html;
+}
+
+// Team Selection
+function loadTeams(){
+  const container=document.getElementById("teamSelection");let teams=[];
+  Object.keys(localStorage).forEach(k=>{if(k!=="admin"&&k!=="leagueMatches"&&k!=="leaguePoints"){const t=JSON.parse(localStorage.getItem(k)).team;if(!teams.includes(t))teams.push(t);}});
+  let html="";teams.forEach(t=>{html+=`<input type="checkbox" class="teamCheck" value="${t}">${t}<br>`});container.innerHTML=html;
+}
+
+// Generate League
+document.getElementById("generateLeague").onclick=()=>{
+  const checked=[...document.querySelectorAll(".teamCheck:checked")].map(c=>c.value);
+  if(checked.length<2){alert("Select at least 2 teams");return;}
+  const matches=[];const leaguePoints={};
+  checked.forEach(t=>{leaguePoints[t]={played:0,win:0,draw:0,loss:0,gf:0,ga:0,gd:0,points:0}});
+  for(let i=0;i<checked.length;i++){for(let j=0;j<checked.length;j++){if(i!==j){matches.push({home:checked[i],away:checked[j],matchTime:"",homeScore:null,awayScore:null,finished:false})}}}
+  localStorage.setItem("leagueMatches",JSON.stringify(matches));localStorage.setItem("leaguePoints",JSON.stringify(leaguePoints));alert("League schedule generated!");
+}
+
+// Matches
+function loadMatches(){
+  const container=document.getElementById("matchTable");let matches=JSON.parse(localStorage.getItem("leagueMatches")||"[]");
+  if(matches.length===0){container.innerHTML="No matches generated.";return;}
+  let html="<table><tr><th>#</th><th>Home</th><th>Away</th><th>Match Time</th><th>Status</th><th>Action</th></tr>";
+  matches.forEach((m,i)=>{html+=`<tr>
+<td>${i+1}</td>
+<td>${m.home}</td>
+<td>${m.away}</td>
+<td><input type="datetime-local" class="matchTime" data-index="${i}" value="${m.matchTime}"></td>
+<td>${m.finished?"Finished":"Pending"}</td>
+<td>${m.finished?"":"<button class='action' data-index='"+i+"'>Enter Score</button>"}</td>
+</tr>`;});html+="</table>";container.innerHTML=html;
+
+  document.querySelectorAll(".matchTime").forEach(input=>{input.onchange=()=>{let matches=JSON.parse(localStorage.getItem("leagueMatches"));matches[input.dataset.index].matchTime=input.value;localStorage.setItem("leagueMatches",JSON.stringify(matches));}});
+  document.querySelectorAll(".action").forEach(btn=>{btn.onclick=()=>{
+    const idx=btn.dataset.index;const m=matches[idx];
+    const h=parseInt(prompt(`Enter goals for ${m.home}:`));const a=parseInt(prompt(`Enter goals for ${m.away}:`));
+    if(isNaN(h)||isNaN(a)){alert("Invalid score"); return;}
+    matches[idx].homeScore=h;matches[idx].awayScore=a;matches[idx].finished=true;updateLeaguePoints(m.home,m.away,h,a);localStorage.setItem("leagueMatches",JSON.stringify(matches));loadMatches();
+  }})
+}
+
+// Update Points
+function updateLeaguePoints(home,away,hs,as){
+  const lp=JSON.parse(localStorage.getItem("leaguePoints"));
+  lp[home].played++; lp[away].played++;
+  lp[home].gf+=hs; lp[home].ga+=as; lp[home].gd=lp[home].gf-lp[home].ga;
+  lp[away].gf+=as; lp[away].ga+=hs; lp[away].gd=lp[away].gf-lp[away].ga;
+  if(hs>as){lp[home].win++; lp[home].points+=3; lp[away].loss++;}
+  else if(hs<as){lp[away].win++; lp[away].points+=3; lp[home].loss++;}
+  else{lp[home].draw++; lp[away].draw++; lp[home].points++; lp[away].points++;}
+  localStorage.setItem("leaguePoints",JSON.stringify(lp));
+}
+
+// Standings
+function loadStandings(){
+  const container=document.getElementById("standingsTable");let lp=JSON.parse(localStorage.getItem("leaguePoints")||"{}");
+  if(Object.keys(lp).length===0){container.innerHTML="No standings yet.";return;}
+  let arr=Object.keys(lp).map(t=>({team:t,...lp[t]}));
+  arr.sort((a,b)=>b.points-a.points||b.gd-a.gd||b.gf-a.gf);
+  let html="<table><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>";
+  arr.forEach((t,i)=>{html+=`<tr>
+<td>${i+1}</td>
+<td>${t.team}</td>
+<td>${t.played}</td>
+<td>${t.win}</td>
+<td>${t.draw}</td>
+<td>${t.loss}</td>
+<td>${t.gf}</td>
+<td>${t.ga}</td>
+<td>${t.gd}</td>
+<td>${t.points}</td>
+</tr>`;});
+  html+="</table>";container.innerHTML=html;
+}
+
+// Settings
+document.getElementById("clearAll").onclick=()=>{
+  if(confirm("Are you sure? All data will be cleared!")){
+    localStorage.clear(); alert("All data cleared."); window.location.href="index.html";
+  }
+}
+document.getElementById("logout").onclick=()=>{ window.location.href="index.html"; }
+</script>
+</body>
+</html>
